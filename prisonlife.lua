@@ -1,46 +1,67 @@
 -- ==========================================
--- ТЕСТОВЫЙ СКРИПТ ДЛЯ MATCHA LUAVM
+-- TEAM DETECTOR (PRISON LIFE)
 -- ==========================================
 
--- 1. Проверяем вывод в консоль Matcha и название исполнителя
-print("Привет от Matcha-latte!")
-if identifyexecutor then
-    local name, version = identifyexecutor()
-    print("Исполнитель: " .. tostring(name) .. " | Версия: " .. tostring(version))
-else
-    print("Функция identifyexecutor не найдена.")
-end
-
--- 2. Проверяем доступ к эмулируемым классам игры
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-if LocalPlayer then
-    print("Успешно подключились к игре! Твой ник: " .. tostring(LocalPlayer.Name))
-else
-    print("Не удалось получить LocalPlayer. Убедись, что ты в игре.")
+if not LocalPlayer then
+    print("[ERROR] LocalPlayer not found. Make sure you are in-game.")
+    return
 end
 
--- 3. Тест Drawing API (Рисуем тестовый квадрат по центру экрана)
--- Если всё работает, на экране появится зелёная рамка
-if Drawing then
-    print("Тестируем Drawing API...")
-    
-    local testBox = Drawing.new("Square")
-    testBox.Size = Vector2.new(150, 150)
-    testBox.Position = Vector2.new(200, 200) -- Координаты на экране
-    testBox.Color = Color3.fromRGB(0, 255, 0) -- Зелёный цвет
-    testBox.Thickness = 2
-    testBox.Filled = false
-    testBox.Visible = true
+print("[INFO] Starting Team and Inventory Check...")
 
-    print("Зелёный квадрат должен появиться на экране!")
+-- Function to check a specific player's team/inventory
+local function checkPlayerTeam(player)
+    if not player then return end
     
-    -- Уберём его через 10 секунд, чтобы не мешал
-    task.wait(10)
-    testBox.Visible = false
-    testBox:Remove()
-    print("Тестовый квадрат удалён.")
-else
-    print("Drawing API недоступен в этой сборке.")
+    local isGuard = false
+    local detectionMethod = "None"
+
+    -- Method 1: Check Team via Player.Team property
+    if player.Team then
+        local teamName = tostring(player.Team.Name):lower()
+        if string.find(teamName, "guard") or string.find(teamName, "police") then
+            isGuard = true
+            detectionMethod = "Tab/Team Property"
+        end
+    end
+
+    -- Method 2: Check Inventory (Backpack) for Handcuffs
+    if not isGuard and player:FindFirstChild("Backpack") then
+        if player.Backpack:FindFirstChild("Handcuffs") then
+            isGuard = true
+            detectionMethod = "Inventory (Handcuffs found)"
+        end
+    end
+
+    -- Method 3: Check Character (if they are currently holding them)
+    if not isGuard and player.Character then
+        if player.Character:FindFirstChild("Handcuffs") then
+            isGuard = true
+            detectionMethod = "Character Holding Handcuffs"
+        end
+    end
+
+    -- Print result
+    if isGuard then
+        print("[GUARD] " .. player.Name .. " | Detected via: " .. detectionMethod)
+    else
+        print("[PRISONER/OTHER] " .. player.Name)
+    end
 end
+
+-- 1. Check yourself first
+print("--- Checking LocalPlayer ---")
+checkPlayerTeam(LocalPlayer)
+
+-- 2. Check all players currently in the server
+print("--- Checking Server Players ---")
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        checkPlayerTeam(player)
+    end
+end
+
+print("[INFO] Scan complete.")
